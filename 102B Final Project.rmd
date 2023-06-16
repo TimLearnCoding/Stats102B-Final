@@ -1,0 +1,1195 @@
+---
+title: "102B Final Project"
+output: html_document
+date: "2023-06-15"
+---
+Libraries
+```{r}
+library(ggplot2)
+library(MASS)
+library(tidyverse)
+```
+
+Helper Functions
+```{r}
+bootsampling <- function(x, boot.replicates = B){
+  x = as.matrix(x)
+  nx = nrow(x)
+  bootsamples = replicate(boot.replicates, x[sample.int(nx, replace = TRUE), ])
+}
+
+boot.stats <- function(boot.sample, myfun, ...){
+  if(is.matrix(boot.sample)){
+    theta <- apply(boot.sample, 2, myfun, ...)
+  } else {
+    theta <- apply(boot.sample, 3, myfun, ...)
+  }
+  if(is.matrix(theta)){
+    return(list(theta = theta, cov = cov(t(theta))))
+  } else{
+    return(list(theta = theta, se = sd(theta)))
+  } }
+```
+
+
+# Problem 1
+
+```{r}
+#true median
+pop_median = lambda* log(2)^(1/k)
+
+#true standard deviation
+pop_variance = lambda^2 * (gamma(1 + 2/k) - (gamma(1 + 1/k))^2)
+pop_sd = sqrt(pop_variance)
+```
+
+## (a)
+fixed parameters for case 1~3
+NOTE1: instead of using B = 5000, I use B = 500 here to save computation without losing much coverage probability.
+NOTE2:Change of B is permitted by Professor George Michailidis according to his email instructions
+
+```{r}
+alpha <- 0.05
+k <- 1.5
+lambda <- 1
+B = 500 
+```
+
+
+### 1. Normal bootstrap confidence interval(CIN)
+Design a function to get CIN
+```{r}
+Get_CIN<- function(n,M,k,lambda,B, alpha  ){
+  X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+normal.CI = data.frame(matrix(ncol = 2, nrow = 0))
+alpha=.05
+zval=qnorm(p=alpha/2, lower.tail=FALSE)
+
+
+for(i in 1:M){
+  x <- X[,i]
+boot.samples = bootsampling(x,B)
+x.median = boot.stats(boot.samples,median)
+
+normal.CI=rbind(normal.CI,cbind(median(x)-zval*x.median$se,median(x)+zval*x.median$se))
+} #median(x) from the original sample
+# x.median$se correspond to the bootstrapped sample variance
+# we are estimate the CI based on our generated sample and its bootstrapped sample
+
+# calculate average length
+avg_length = mean(normal.CI[,2]-normal.CI[,1])
+#calculate coverage probability
+count <-sum(normal.CI[,1]<= pop_median& normal.CI[,2]>= pop_median)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+
+}
+
+
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(1)
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case2: n = 100,M =500
+```{r}
+set.seed(2)
+n <- 100
+M <-500
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(3)
+n <- 250
+M <-100
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(4)
+n <- 250
+M <-500
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+
+###2. Basic bootstrap confidence interval.
+Design a function to get CIB
+```{r}
+Get_CIB<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+Basic.CI = data.frame(matrix(ncol = 2, nrow = 0))
+for (i in 1:M){
+  x <-X[,i]
+  boot.samples = bootsampling(x,B) # for each random sample, bootsampling with B = 5000 replicates
+  x.median = boot.stats(boot.samples,median) # bootstrapped mean for Xm
+  #calculate Confidence Interval for each Xm
+Basic.CI=rbind(Basic.CI,cbind(2 * median(x)
+ - quantile(x.median$theta, probs = 1 - alpha / 2, names = FALSE), 2 * median(x) - quantile(x.median$theta, probs = alpha / 2, names = FALSE)))
+}
+
+# calculate average length
+avg_length = mean(Basic.CI[,2]-Basic.CI[,1])
+#calculate coverage probability
+count <-sum(Basic.CI[,1]<= x_median& Basic.CI[,2]>= x_median)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+
+}
+
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(5)
+Get_CIB(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(6)
+n <- 100
+M <-500
+Get_CIB(n,M,k,lambda,500, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(7)
+n <- 250
+M <-100
+Get_CIB(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(8)
+n <- 250
+M <-500
+Get_CIB(n,M,k,lambda,B, alpha )
+
+
+```
+
+### 3. Percentile bootstrap confidence interval.
+Design a function to get CIP
+```{r}
+Get_CIP<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+Percentile.CI = data.frame(matrix(ncol = 2, nrow = 0))
+
+for (i in 1:M){
+  x<-X[,i]
+  boot.samples = bootsampling(x,B) # for each random sample, bootsampling with B = 5000 replicates
+  x.median = boot.stats(boot.samples,median) # bootstrapped mean
+  #calculate Confidence Interval for each Xm
+Percentile.CI=rbind(Percentile.CI,cbind(quantile(x.median$theta, probs = alpha / 2, names = FALSE),
+             quantile(x.median$theta, probs = 1 - alpha / 2, names = FALSE)))
+
+}
+
+# calculate average length
+avg_length = mean(Percentile.CI[,2]-Percentile.CI[,1])
+#calculate coverage probability
+count <-sum(Percentile.CI[,1]<= pop_median& Percentile.CI[,2]>= pop_median)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+}
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(9)
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(10)
+n <- 100
+M <-500
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(11)
+n <- 250
+M <-100
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(12)
+n <- 250
+M <-500
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+### 4. Bootstrap-t (studentized) confidence interval.
+
+Design a function to get CIS
+```{r}
+Get_CIS<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+studentized.CI = data.frame(matrix(ncol = 2, nrow = 0))
+
+for(j in 1:M){
+  x <- X[,i]
+boot.samples = bootsampling(x,B)
+
+x.median = boot.stats(boot.samples,xmedian)
+
+# obtain the standard deviation of the sample statistic 
+# for the l-th bootstrap sample
+
+boot.samples.SE = rep(0,ncol(boot.samples))
+
+for (l in 1:ncol(boot.samples) ) {
+  # obtain bootstrap samples from original bootstrap sample l
+  iter.boot.samples = bootsampling(boot.samples[,l],B)
+  # get the std dev of the bootstrap sampling distribution based on the l-th bootstrap sampe
+  boot.samples.SE[l] = boot.stats(iter.boot.samples,xbar)$se
+}
+
+# obtain the T-statistic
+T = (x.median$theta-median(x)) / boot.samples.SE
+
+# obtain the quantiles of the distribution of the T-statistic
+qval = quantile(T,probs=c(alpha/2,1-alpha/2))
+  
+# construct the studentized.CI
+
+studentized.CI=rbind(studentized.CI,
+                cbind(median(x)-qval[2]*x.median$se,median(x)-qval[1]*x.median$se))
+}
+
+
+# calculate average length
+avg_length = mean(studentized.CI[,2]-studentized.CI[,1])
+#calculate coverage probability
+count <-sum(studentized.CI[,1]<= pop_median& studentized.CI[,2]>= pop_median)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+}
+```
+NOTE: given there are two iteration within GIS, its run time is significantly higer than the others but achieve very high coverage probability with few replicates B. After manual tuning, I use B = 50 to do the studentdized test alone.  
+```{r}
+B = 50
+```
+
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(13)
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(14)
+n <- 100
+M <-500
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(15)
+n <- 250
+M <-100
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(16)
+n <- 250
+M <-500
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+
+
+## (b)
+fixed parameters for case CIN, CIB, CIP
+NOTE: instead of using B = 5000, I use B = 500 here to save computation without losing much coverage probability
+```{r}
+alpha <- 0.05
+k <- 1.5
+lambda <- 1
+B = 500 
+```
+
+### 1. Normal bootstrap confidence interval(CIN)
+Design a function to get CIN
+```{r}
+
+Get_CIN<- function(n,M,k,lambda,B, alpha  ){
+  X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+normal.CI = data.frame(matrix(ncol = 2, nrow = 0))
+alpha=.05
+zval=qnorm(p=alpha/2, lower.tail=FALSE)
+
+
+for(i in 1:M){
+  x <- X[,i]
+boot.samples = bootsampling(x,B)
+x.sd = boot.stats(boot.samples,sd)
+
+normal.CI=rbind(normal.CI,cbind(sd(x)-zval*x.sd$se,sd(x)+zval*x.sd$se))
+} #median(x) from the original sample
+# x.median$se correspond to the bootstrapped sample variance
+# we are estimate the CI based on our generated sample and its bootstrapped sample
+
+# calculate average length
+avg_length = mean(normal.CI[,2]-normal.CI[,1])
+#calculate coverage probability
+count <-sum(normal.CI[,1]<= pop_sd& normal.CI[,2]>= pop_sd)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+
+}
+
+
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(17)
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case2: n = 100,M =500
+```{r}
+set.seed(18)
+n <- 100
+M <-500
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(19)
+n <- 250
+M <-100
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(20)
+n <- 250
+M <-500
+Get_CIN(n,M,k,lambda,B, alpha )
+
+```
+
+###2. Basic bootstrap confidence interval.
+Design a function to get CIB
+```{r}
+Get_CIB<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+Basic.CI = data.frame(matrix(ncol = 2, nrow = 0))
+for (i in 1:M){
+  x <-X[,i]
+  boot.samples = bootsampling(x,B) # for each random sample, bootsampling with B = 5000 replicates
+  x.sd = boot.stats(boot.samples,sd) # bootstrapped mean for Xm
+  #calculate Confidence Interval for each Xm
+Basic.CI=rbind(Basic.CI,cbind(2 * sd(x)
+ - quantile(x.sd$theta, probs = 1 - alpha / 2, names = FALSE), 2 * sd(x) - quantile(x.sd$theta, probs = alpha / 2, names = FALSE)))
+}
+
+# calculate average length
+avg_length = mean(Basic.CI[,2]-Basic.CI[,1])
+#calculate coverage probability
+count <-sum(Basic.CI[,1]<= pop_sd& Basic.CI[,2]>= pop_sd)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+
+}
+
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(21)
+Get_CIB(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(22)
+n <- 100
+M <-500
+Get_CIB(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(23)
+n <- 250
+M <-100
+Get_CIB(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(24)
+n <- 250
+M <-500
+Get_CIB(n,M,k,lambda,B, alpha )
+
+
+```
+
+### 3. Percentile bootstrap confidence interval.
+Design a function to get CIP
+```{r}
+Get_CIP<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+Percentile.CI = data.frame(matrix(ncol = 2, nrow = 0))
+
+for (i in 1:M){
+  x<-X[,i]
+  boot.samples = bootsampling(x,B) # for each random sample, bootsampling with B = 5000 replicates
+  x.sd = boot.stats(boot.samples,sd) # bootstrapped mean
+  #calculate Confidence Interval for each Xm
+Percentile.CI=rbind(Percentile.CI,cbind(quantile(x.sd$theta, probs = alpha / 2, names = FALSE),
+             quantile(x.sd$theta, probs = 1 - alpha / 2, names = FALSE)))
+
+}
+
+# calculate average length
+avg_length = mean(Percentile.CI[,2]-Percentile.CI[,1])
+#calculate coverage probability
+count <-sum(Percentile.CI[,1]<= pop_sd& Percentile.CI[,2]>= pop_sd)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+}
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(25)
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(26)
+n <- 100
+M <-500
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(27)
+n <- 250
+M <-100
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(28)
+n <- 250
+M <-500
+Get_CIP(n,M,k,lambda,B, alpha )
+
+```
+### 4. Bootstrap-t (studentized) confidence interval.
+
+Design a function to get CIS
+```{r}
+Get_CIS<- function(n,M,k,lambda,B, alpha  ){
+   X = replicate ( M ,  rweibull(n,shape=k,scale=lambda)) # create M = 100 random samples with size n=100
+
+# create  a data frame for CI
+studentized.CI = data.frame(matrix(ncol = 2, nrow = 0))
+
+for(j in 1:M){
+  x <- X[,i]
+boot.samples = bootsampling(x,B)
+
+x.sd = boot.stats(boot.samples,sd)
+
+# obtain the standard deviation of the sample statistic 
+# for the l-th bootstrap sample
+
+boot.samples.SE = rep(0,ncol(boot.samples))
+
+for (l in 1:ncol(boot.samples) ) {
+  # obtain bootstrap samples from original bootstrap sample l
+  iter.boot.samples = bootsampling(boot.samples[,l],B)
+  # get the std dev of the bootstrap sampling distribution based on the l-th bootstrap sampe
+  boot.samples.SE[l] = boot.stats(iter.boot.samples,xbar)$se
+}
+
+# obtain the T-statistic
+T = (x.sd$theta-sd(x)) / boot.samples.SE
+
+# obtain the quantiles of the distribution of the T-statistic
+qval = quantile(T,probs=c(alpha/2,1-alpha/2))
+  
+# construct the studentized.CI
+
+studentized.CI=rbind(studentized.CI,
+                cbind(sd(x)-qval[2]*x.sd$se,sd(x)-qval[1]*x.sd$se))
+}
+
+
+# calculate average length
+avg_length = mean(studentized.CI[,2]-studentized.CI[,1])
+#calculate coverage probability
+count <-sum(studentized.CI[,1]<= pop_sd& studentized.CI[,2]>= pop_sd)
+coverage <- count / M
+
+#display results
+cat("coverage probility is",coverage, "\n")
+cat("average length is:",avg_length)
+}
+```
+NOTE: given there are two iteration within GIS, its run time is significantly higer than the others but achieve very high coverage probability with few replicates B. After manual tuning, I use B = 50 to do the studentdized test alone.  
+```{r}
+B = 50
+```
+#### Case1: n = 100,M =100
+```{r}
+n <- 100
+M <- 100
+set.seed(29)
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+
+#### Case2: n = 100,M =500
+```{r}
+set.seed(30)
+n <- 100
+M <-500
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+#### Case3: n = 250,M =100
+```{r}
+set.seed(31)
+n <- 250
+M <-100
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+#### Case4: n = 250,M =500
+```{r}
+set.seed(32)
+n <- 250
+M <-500
+Get_CIS(n,M,k,lambda,B, alpha )
+
+```
+
+
+
+
+
+
+# Problem 2
+
+## (a)
+```{r}
+
+n <- 100  # Number of observations
+p <- 20      # Number of predictors
+
+# 1. True regression coefficient = 3
+beta_true <- rep(3, p)
+
+# 2.Correlation matrix for predictors
+R <- matrix(c(rep(0.99, p/2), rep(0.9, p/2)), p, p)
+diag(R) <- 1
+
+# 2. Generate predictors with mean 0 and correlation matrix R
+X <- mvrnorm(n, mu= rep(0, p), R)
+
+# 3. Error term
+epsilon <- rnorm(n, mean = 0, sd = 1.25)
+
+
+# Generate response variable
+y <- X %*% beta_true + epsilon #including information of the beta_true and epsilon
+
+
+
+```
+
+## (b)
+gradient descent function:
+```{r}
+gradientDesc = function(y, X, startpoint, stepsize, 
+                        conv_threshold, max_iter) {
+  
+  old.point = startpoint
+  gradient = t(X) %*% X %*% old.point - t(X)%*%y
+  new.point = old.point - stepsize * gradient
+  
+  #Beta_hat_old
+  old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
+  
+  converged = F
+  iterations = 0
+  iters <- NULL
+
+  while(converged == F) {
+    ## Implement the gradient descent algorithm
+    old.point = new.point
+    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    new.point = old.point - stepsize * gradient
+    
+    # B_hat_new
+    new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
+    
+    if (is.na(old.value.function) || is.na(new.value.function)) {
+      stop("NaN value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
+      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if( abs(old.value.function -new.value.function)<=conv_threshold){
+      converged = T
+    }
+    
+    data.output = data.frame(iteration = iterations,
+                       old.value.function = old.value.function,
+                       new.value.function = new.value.function,
+                       old.point=old.point, new.point=new.point
+                       )
+    
+    if(exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters = data.output
+    }
+    
+    iterations = iterations + 1
+    old.value.function = new.value.function
+    
+    if(iterations >= max_iter) break
+  }
+  return(list(converged = converged, 
+              num_iterations = iterations, 
+              old.value.function = old.value.function,
+              new.value.function = new.value.function,
+              coefs = new.point,
+              iters = iters))
+}
+
+
+```
+```{r}
+## correct GD, used for referring the later two GDM SGDM
+ conv_threshold = mytol
+max_iter = 10000
+
+  old.point = startpoint
+  gradient = t(X) %*% X %*% old.point - t(X)%*%y
+  new.point = old.point - stepsize * gradient
+  
+  #Beta_hat_old
+  old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
+  
+  converged = F
+  iterations = 0
+  iters <- NULL
+
+  while(converged == F) {
+    ## Implement the gradient descent algorithm
+    old.point = new.point
+    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    new.point = old.point - stepsize * gradient
+    
+    # B_hat_new
+    new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
+    
+    if (is.na(old.value.function) || is.na(new.value.function)) {
+      stop("NaN value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
+      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if( abs(old.value.function -new.value.function)<=conv_threshold){
+      converged = T
+    }
+    
+    data.output = data.frame(iteration = iterations,
+                       old.value.function = old.value.function,
+                       new.value.function = new.value.function,
+                       old.point=old.point, new.point=new.point
+                       )
+    
+    if(exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters = data.output
+    }
+    
+    iterations = iterations + 1
+    old.value.function = new.value.function
+    
+    if(iterations >= max_iter) break
+  }
+
+```
+
+Running GD
+```{r}
+#  define the step size
+mystepsize=0.00001
+# here we define the tolerance of the convergence criterion
+mytol = 0.00000001 
+# starting point
+startpoint = rep(0, p)
+
+results = gradientDesc(y, X, mystartpoint, 
+                       mystepsize, mytol, 10000)
+```
+LS
+```{r}
+LS_model <- lm(y~X)
+
+#Compare Two Models
+df_ls = data.frame(cbind(results$coefs,LS_model$coefficients))
+names(df_ls) <- c("GD", "LS")
+df_ls
+```
+Comments:
+I use "Manual tuning" method to select the step size. The rule of thumbs is if the step size is to big, the result will never converge; if the step size is small, it will converge slowly. In the beginning I tried some step sizes like 10^-3, 10^-4 and the results didn't converge until I tuned the step size to 10^-5.
+
+## (c)
+gradient descent with Polyak’s heavy ball adjustment (GDM) :
+```{r}
+gradientDescPolyak = function(y, X, startpoint, stepsize,  momentum,conv_threshold, max_ite, backtracking = TRUE, alpha = 0.5, tau = 0.8) {
+  
+  old.point = startpoint
+  
+   #[(X'X )βk − X'y]
+  gradient = t(X)%*%X%*%old.point - t(X)%*%y
+  
+   #βk+1 = βk − η*[(X'X )βk − X'y]  + ξ(βk − βk−1)
+  new.point = old.point - stepsize * gradient + momentum * (old.point - startpoint)
+ 
+  old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
+  
+  converged = F
+  iterations = 0
+  iters <- NULL
+
+  while(converged == F) {
+    ## Implement the gradient descent algorithm with Polyak's heavy ball adjustment
+    old.point = new.point
+    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    
+   old.point = new.point
+    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    
+     if (backtracking) {
+      # Backtracking line search
+      t <- 1 # step size tuner
+      while (t > 1e-10) {
+        candidate.point <- old.point - t * stepsize * gradient + momentum * (old.point - startpoint)
+        candidate.value.function <- t(y - X %*% candidate.point) %*% (y - X %*% candidate.point)
+        
+        if (candidate.value.function < old.value.function - alpha * t * sum(gradient^2)) {
+          break
+        }
+        
+        t <- tau * t
+      }
+      new.point <- candidate.point
+     }else{
+       # with fixed step size
+       new.point = old.point - stepsize * gradient + momentum * (old.point - startpoint)
+     }
+    
+    new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
+    
+    if (is.na(old.value.function) || is.na(new.value.function)) {
+      stop("NaN value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
+      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if( abs(old.value.function -new.value.function)<=conv_threshold){
+      converged = T
+    }
+    
+    data.output = data.frame(iteration = iterations,
+                       old.value.function = old.value.function,
+                       new.value.function = new.value.function,
+                       old.point=old.point, new.point=new.point
+                       )
+    
+    if(exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters = data.output
+    }
+    
+    iterations = iterations + 1
+    old.value.function = new.value.function
+    
+    if(iterations >= max_iter) break
+  }
+  return(list(converged = converged, 
+              num_iterations = iterations, 
+              old.value.function = old.value.function,
+              new.value.function = new.value.function,
+              coefs = new.point,
+              iters = iters))
+}
+
+```
+
+```{r}
+momentum = 0.001
+stepsize = 0.00000001
+tau = 0.01
+ results_GDP <- gradientDescPolyak(y, X, startpoint, stepsize, momentum, mytol, 10000) 
+ results_GDP$coefs
+```
+
+
+
+## (d)
+Stochastic Gradient Descent with Polyak’s heavy ball adjustment (SGDM)
+```{r}
+# GPT ver
+stochastic_gradientDescPolyak = function(y, X, startpoint, stepsize, momentum,conv_threshold, max_iter, batch_size, backtracking = TRUE, alpha = 0.5, tau = 0.8) {
+  
+  n <- nrow(X)
+  old.point <- startpoint
+  gradient <- t(X) %*% X %*% old.point - t(X) %*% y
+  new.point <- old.point - stepsize * gradient + momentum * (old.point - startpoint)
+
+  old.value.function <- t(y - X %*% old.point) %*% (y - X %*% old.point)
+  
+  converged <- FALSE
+  iterations <- 0
+  iters <- NULL
+
+  while (converged == FALSE) {
+    ## Implement the stochastic gradient descent algorithm with Polyak's heavy ball adjustment and backtracking line search
+    indices <- sample(n, batch_size, replace = FALSE)
+    X_batch <- X[indices, ]
+    y_batch <- y[indices]
+    
+    old.point <- new.point
+    gradient <- t(X_batch) %*% X_batch %*% old.point - t(X_batch) %*% y_batch
+    
+    if (backtracking) {
+      stepsize <- 1
+      while (tau * t(y_batch - X_batch %*% (old.point - stepsize * gradient)) %*% (y_batch - X_batch %*% (old.point - stepsize * gradient)) > tau * t(y_batch - X_batch %*% old.point) %*% (y_batch - X_batch %*% old.point)) {
+        stepsize <- alpha * stepsize
+      }
+    }
+    
+    new.point <- old.point - stepsize * gradient + momentum * (old.point - startpoint)
+    
+    new.value.function <- t(y_batch - X_batch %*% new.point) %*% (y_batch - X_batch %*% new.point)
+    
+    if (is.na(old.value.function) || is.na(new.value.function)) {
+      stop("NaN value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
+      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
+    }
+    
+    if (abs(old.value.function - new.value.function) <= conv_threshold) {
+      converged <- TRUE
+    }
+    
+    data.output <- data.frame(iteration = iterations,
+            old.value.function = old.value.function,
+            new.value.function = new.value.function,
+            old.point = old.point, new.point = new.point
+    )
+    
+    if (exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters <- data.output
+    }
+    
+    iterations <- iterations + 1
+    old.value.function <- new.value.function
+    
+    if (iterations >= max_iter) break
+  }
+  
+  return(list(converged = converged, 
+              num_iterations = iterations, 
+              old.value.function = old.value.function,
+              new.value.function = new.value.function,
+              coefs = new.point,
+              iters = iters))
+}
+
+
+```
+
+```{r}
+# 10-1 lecture code, SGD with my adjustment
+
+SGD_BLS = function(y, X, startpoint, stepsize, conv_threshold, 
+                   epsilon, tau, mb, max_iter) {
+
+  mini_batch=ceiling(length(y)*mb)
+  
+  z=cbind(y,X)
+  
+  # shuffle the data and select a mini batch
+  
+  shuffle.sample = z[sample(mini_batch,replace=FALSE),]  
+  shuffle.sample = matrix(shuffle.sample, nrow  = 1)
+  
+  ys= as.matrix(shuffle.sample[,1] )
+  Xs= matrix(shuffle.sample[,2:ncol(shuffle.sample)], nrow = 1)
+  
+  old.point = startpoint
+  gradient = (t(Xs)%*%Xs%*%old.point - t(Xs)%*%ys)
+  
+  # determine stepsize by backtracking line search
+  
+while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize*gradient)) > t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient ){
+    stepsize = tau * stepsize
+  }
+  
+  new.point = old.point - stepsize * gradient
+
+
+  old.value.function = t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point)
+  
+  converged = F
+  iterations = 0
+  
+  while(converged == F) {
+    
+    # shuffle the data and select a mini batch
+    shuffle.sample = z[sample(mini_batch,replace=FALSE),]  
+    shuffle.sample = matrix(shuffle.sample, nrow  = 1)
+    ys= as.matrix(shuffle.sample[,1] )
+    Xs= matrix(shuffle.sample[,2:ncol(shuffle.sample)], nrow = 1)
+    
+    ## Implement the stochastic gradient descent algorithm
+    old.point = new.point
+  
+    gradient = t(Xs)%*%Xs%*%old.point - t(Xs)%*%ys
+    
+    # determine stepsize by backtracking line search
+    
+    while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize*gradient)) >
+           t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+    {
+      stepsize = tau * stepsize
+    }
+    
+    new.point = old.point - stepsize * gradient
+    
+    new.value.function = t(ys -Xs%*%new.point)%*%(ys-Xs%*%new.point)
+    
+    
+    if( abs(old.value.function - new.value.function) <=conv_threshold) {
+      converged = T
+    }
+    
+    data.output = data.frame(iteration = iterations,
+                       old.value.function = old.value.function,
+                       new.value.function = new.value.function,
+                       old.point=old.point, new.point=new.point,
+                       stepsize = stepsize
+                       )
+    
+    if(exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters = data.output
+    }
+    
+    iterations = iterations + 1
+    old.value.function = new.value.function
+    
+    if(iterations >= max_iter) break
+  }
+  return(list(converged = converged, 
+              num_iterations = iterations, 
+              old.value.function = old.value.function,
+              new.value.function = new.value.function,
+              coefs = new.point,
+              stepsize = stepsize,
+              iters = iters))
+}
+
+```
+
+```{r}
+# 10-1 lecture code, SGD wo my adjustment
+SGD_BLS = function(y, X, startpoint, stepsize, conv_threshold, epsilon, tau, mb, max_iter) {
+  
+  mini_batch = ceiling(length(y) * mb)
+  
+  z = as.data.frame(cbind(y, X))
+  
+  # shuffle the data and select a mini batch
+  shuffle.sample = z[sample(mini_batch, replace = FALSE), ]
+  
+  ys = shuffle.sample[, 1]
+  Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
+  
+  old.point = startpoint
+  gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
+  
+  # determine stepsize by backtracking line search
+  while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
+           t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient) {
+    stepsize = tau * stepsize
+  }
+  
+  new.point = old.point - stepsize * gradient
+  
+  old.value.function = t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point)
+  
+  converged = FALSE
+  iterations = 0
+  iters <- NULL
+  
+  while (!converged) {
+    # shuffle the data and select a mini batch
+    shuffle.sample = z[sample(mini_batch, replace = FALSE), ]
+    
+    ys = shuffle.sample[, 1]
+    Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
+    
+    ## Implement the stochastic gradient descent algorithm
+    old.point = new.point
+    
+    gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
+    
+    # determine stepsize by backtracking line search
+    while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
+             t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient) {
+      stepsize = tau * stepsize
+    }
+    
+    new.point = old.point - stepsize * gradient
+    
+    new.value.function = t(ys - Xs %*% new.point) %*% (ys - Xs %*% new.point)
+    
+    if (abs(old.value.function - new.value.function) <= conv_threshold) {
+      converged = TRUE
+    }
+    
+    data.output = data.frame(iteration = iterations,
+                             old.value.function = old.value.function,
+                             new.value.function = new.value.function,
+                             old.point = old.point, new.point = new.point,
+                             stepsize = stepsize
+    )
+    
+    if (exists("iters")) {
+      iters <- rbind(iters, data.output)
+    } else {
+      iters = data.output
+    }
+    
+    iterations = iterations + 1
+    old.value.function = new.value.function
+    
+    if (iterations >= max_iter) break
+  }
+  
+  return(list(converged = converged,
+              num_iterations = iterations,
+              old.value.function = old.value.function,
+              new.value.function = new.value.function,
+              coefs = new.point,
+              stepsize = stepsize,
+              iters = iters))
+}
+
+```
+
+```{r}
+# here we define the step size
+mystepsize=0.0001
+# here we define the tolerance of the convergence criterion
+mytol = 1e-8
+# epsilon for backtracking line search
+epsilon = 0.5
+# tau for backtracking line search
+tau = 0.5
+# minibatch size
+mb = 0.001
+results_d <- SGD_BLS(y, X, startpoint, stepsize, mytol, 
+                   epsilon, tau, mb, 10000)
+results_d$coefs
+```
+
