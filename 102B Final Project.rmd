@@ -35,6 +35,9 @@ boot.stats <- function(boot.sample, myfun, ...){
 # Problem 1
 
 ```{r}
+alpha <- 0.05
+k <- 1.5
+lambda <- 1
 #true median
 pop_median = lambda* log(2)^(1/k)
 
@@ -49,9 +52,6 @@ NOTE1: instead of using B = 5000, I use B = 500 here to save computation without
 NOTE2:Change of B is permitted by Professor George Michailidis according to his email instructions
 
 ```{r}
-alpha <- 0.05
-k <- 1.5
-lambda <- 1
 B = 500 
 ```
 
@@ -144,7 +144,7 @@ Basic.CI=rbind(Basic.CI,cbind(2 * median(x)
 # calculate average length
 avg_length = mean(Basic.CI[,2]-Basic.CI[,1])
 #calculate coverage probability
-count <-sum(Basic.CI[,1]<= x_median& Basic.CI[,2]>= x_median)
+count <-sum(Basic.CI[,1]<= pop_median& Basic.CI[,2]>= pop_median)
 coverage <- count / M
 
 #display results
@@ -262,11 +262,11 @@ Get_CIS<- function(n,M,k,lambda,B, alpha  ){
 # create  a data frame for CI
 studentized.CI = data.frame(matrix(ncol = 2, nrow = 0))
 
-for(j in 1:M){
+for(i in 1:M){
   x <- X[,i]
 boot.samples = bootsampling(x,B)
 
-x.median = boot.stats(boot.samples,xmedian)
+x.median = boot.stats(boot.samples,median)
 
 # obtain the standard deviation of the sample statistic 
 # for the l-th bootstrap sample
@@ -277,7 +277,7 @@ for (l in 1:ncol(boot.samples) ) {
   # obtain bootstrap samples from original bootstrap sample l
   iter.boot.samples = bootsampling(boot.samples[,l],B)
   # get the std dev of the bootstrap sampling distribution based on the l-th bootstrap sampe
-  boot.samples.SE[l] = boot.stats(iter.boot.samples,xbar)$se
+  boot.samples.SE[l] = boot.stats(iter.boot.samples,median)$se
 }
 
 # obtain the T-statistic
@@ -342,6 +342,21 @@ M <-500
 Get_CIS(n,M,k,lambda,B, alpha )
 
 ```
+Description of the part(a)
+
+
+3. Report the count/coverage and the average length for each of the four types
+of CIs constructed"
+
+1. I calculate the population median of our simulated Weibull distribution first given k = 1.5 and lambda = 1.
+2. For each type of Confidence Interval (CI), coverage probability and the average length of CI:
+  + I first generate M = 100 random samples based on Weibull distribution  
+  + Then I wrote a for loop to calculate CI for all random sample X[,i]. On each random sample, I bootstrap them for B = 500 replicated, and I calculate the bootstrapped sample median and the standard deviation of it for each bootstrapped sample on each X[,i]
+    + For CIN, I followed CI(mean(X[,i]) - z_value\*(boot.sample median X[,i])\$SE,  median(X[,i])+ z_value*(boot.sample median of X[,i])\$SE)
+    + For CIB, I calculated CI with 2\*(sample median of X[,i])-the (1-alpha / 2) quantile of bootstrapped sample median on X[,i]; and  2\*(sample.statistics of X[,i])+the (alpha / 2) quantile of bootstrapped sample median on X[,i]
+    + For CIP, the calculation of CI is simple: use 1-(1-alpha / 2) quantile of bootstrapped sample median on X[,i] to calculate the lower bound, and (alpha / 2) quantile of bootstrapped sample median on X[,i] to calculate the upper bound. CI = (lower bound, upper bound).
+    + For CIS:
+      +
 
 
 ## (b)
@@ -561,7 +576,7 @@ Get_CIS<- function(n,M,k,lambda,B, alpha  ){
 # create  a data frame for CI
 studentized.CI = data.frame(matrix(ncol = 2, nrow = 0))
 
-for(j in 1:M){
+for(i in 1:M){
   x <- X[,i]
 boot.samples = bootsampling(x,B)
 
@@ -576,7 +591,7 @@ for (l in 1:ncol(boot.samples) ) {
   # obtain bootstrap samples from original bootstrap sample l
   iter.boot.samples = bootsampling(boot.samples[,l],B)
   # get the std dev of the bootstrap sampling distribution based on the l-th bootstrap sampe
-  boot.samples.SE[l] = boot.stats(iter.boot.samples,xbar)$se
+  boot.samples.SE[l] = boot.stats(iter.boot.samples,sd)$se
 }
 
 # obtain the T-statistic
@@ -603,7 +618,9 @@ cat("coverage probility is",coverage, "\n")
 cat("average length is:",avg_length)
 }
 ```
+
 NOTE: given there are two iteration within GIS, its run time is significantly higer than the others but achieve very high coverage probability with few replicates B. After manual tuning, I use B = 50 to do the studentdized test alone.  
+
 ```{r}
 B = 50
 ```
@@ -676,40 +693,29 @@ y <- X %*% beta_true + epsilon #including information of the beta_true and epsil
 ```
 
 ## (b)
-gradient descent function:
+gradient descent (GD) function:
 ```{r}
 gradientDesc = function(y, X, startpoint, stepsize, 
                         conv_threshold, max_iter) {
   
   old.point = startpoint
-  gradient = t(X) %*% X %*% old.point - t(X)%*%y
+  gradient = (t(X)%*%X%*%old.point - t(X)%*%y)
   new.point = old.point - stepsize * gradient
-  
-  #Beta_hat_old
+
   old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
   
   converged = F
   iterations = 0
-  iters <- NULL
-
+  
   while(converged == F) {
     ## Implement the gradient descent algorithm
     old.point = new.point
-    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    gradient = t(X) %*% X %*% old.point - t(X)%*%y
     new.point = old.point - stepsize * gradient
     
-    # B_hat_new
     new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
     
-    if (is.na(old.value.function) || is.na(new.value.function)) {
-      stop("NaN value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
-      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if( abs(old.value.function -new.value.function)<=conv_threshold){
+    if( abs(old.value.function - new.value.function) <= conv_threshold) {
       converged = T
     }
     
@@ -718,7 +724,7 @@ gradientDesc = function(y, X, startpoint, stepsize,
                        new.value.function = new.value.function,
                        old.point=old.point, new.point=new.point
                        )
-    
+    iters <- NULL
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -737,156 +743,95 @@ gradientDesc = function(y, X, startpoint, stepsize,
               coefs = new.point,
               iters = iters))
 }
-
-
-```
-```{r}
-## correct GD, used for referring the later two GDM SGDM
- conv_threshold = mytol
-max_iter = 10000
-
-  old.point = startpoint
-  gradient = t(X) %*% X %*% old.point - t(X)%*%y
-  new.point = old.point - stepsize * gradient
-  
-  #Beta_hat_old
-  old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
-  
-  converged = F
-  iterations = 0
-  iters <- NULL
-
-  while(converged == F) {
-    ## Implement the gradient descent algorithm
-    old.point = new.point
-    gradient = t(X)%*%X%*%old.point - t(X)%*%y
-    new.point = old.point - stepsize * gradient
-    
-    # B_hat_new
-    new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
-    
-    if (is.na(old.value.function) || is.na(new.value.function)) {
-      stop("NaN value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
-      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if( abs(old.value.function -new.value.function)<=conv_threshold){
-      converged = T
-    }
-    
-    data.output = data.frame(iteration = iterations,
-                       old.value.function = old.value.function,
-                       new.value.function = new.value.function,
-                       old.point=old.point, new.point=new.point
-                       )
-    
-    if(exists("iters")) {
-      iters <- rbind(iters, data.output)
-    } else {
-      iters = data.output
-    }
-    
-    iterations = iterations + 1
-    old.value.function = new.value.function
-    
-    if(iterations >= max_iter) break
-  }
-
 ```
 
 Running GD
 ```{r}
+# starting point
+mystartpoint = rep(0, p)
 #  define the step size
-mystepsize=0.00001
+mystepsize=0.000001
 # here we define the tolerance of the convergence criterion
 mytol = 0.00000001 
-# starting point
-startpoint = rep(0, p)
 
-results = gradientDesc(y, X, mystartpoint, 
-                       mystepsize, mytol, 10000)
+
+results_GD = gradientDesc(y, X, mystartpoint, 
+                       mystepsize, mytol, max_iter= 10000)
+
 ```
-LS
+Least Square Model (LS)
 ```{r}
 LS_model <- lm(y~X)
-
 #Compare Two Models
-df_ls = data.frame(cbind(results$coefs,LS_model$coefficients))
-names(df_ls) <- c("GD", "LS")
-df_ls
+df_GD.LS = data.frame(cbind(results_GD$coefs,LS_model$coefficients))
+names(df_GD.LS) <- c("GD", "LS")
+df_GD.LS
 ```
 Comments:
 I use "Manual tuning" method to select the step size. The rule of thumbs is if the step size is to big, the result will never converge; if the step size is small, it will converge slowly. In the beginning I tried some step sizes like 10^-3, 10^-4 and the results didn't converge until I tuned the step size to 10^-5.
 
 ## (c)
-gradient descent with Polyak’s heavy ball adjustment (GDM) :
+gradient descent with Polyak’s heavy ball adjustment (GDP) :
 ```{r}
-gradientDescPolyak = function(y, X, startpoint, stepsize,  momentum,conv_threshold, max_ite, backtracking = TRUE, alpha = 0.5, tau = 0.8) {
+gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0, 
+                  tau, epsilon,momentum, conv_threshold,max_iter) {
   
   old.point = startpoint
+  older.point = old.point 
   
-   #[(X'X )βk − X'y]
-  gradient = t(X)%*%X%*%old.point - t(X)%*%y
+  stepsize = stepsize_0
+  gradient = (t(X)%*%X%*%old.point - t(X)%*%y)
   
-   #βk+1 = βk − η*[(X'X )βk − X'y]  + ξ(βk − βk−1)
-  new.point = old.point - stepsize * gradient + momentum * (old.point - startpoint)
- 
-  old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
+  # determine stepsize by backtracking line search at iter = 0
+  
+  while (t(y - X%*%(old.point-stepsize*gradient))%*%(y-X%*%(old.point-stepsize*gradient)) >
+                t(y - X%*%old.point)%*%(y-X%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+     {
+    stepsize = tau * stepsize
+  }
+  
+  new.point = old.point - stepsize * gradient + momentum * (old.point - older.point)
+
+
+  old.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
   
   converged = F
   iterations = 0
-  iters <- NULL
-
+  
   while(converged == F) {
-    ## Implement the gradient descent algorithm with Polyak's heavy ball adjustment
+    ## Implement the gradient descent algorithm
+    older.point = old.point
     old.point = new.point
+  
     gradient = t(X)%*%X%*%old.point - t(X)%*%y
     
-   old.point = new.point
-    gradient = t(X)%*%X%*%old.point - t(X)%*%y
+    # here we check how to pick the stepsize at iteration k
+    stepsize = stepsize_0
     
-     if (backtracking) {
-      # Backtracking line search
-      t <- 1 # step size tuner
-      while (t > 1e-10) {
-        candidate.point <- old.point - t * stepsize * gradient + momentum * (old.point - startpoint)
-        candidate.value.function <- t(y - X %*% candidate.point) %*% (y - X %*% candidate.point)
-        
-        if (candidate.value.function < old.value.function - alpha * t * sum(gradient^2)) {
-          break
-        }
-        
-        t <- tau * t
-      }
-      new.point <- candidate.point
-     }else{
-       # with fixed step size
-       new.point = old.point - stepsize * gradient + momentum * (old.point - startpoint)
-     }
+    iters <- NULL
+    while (t(y - X%*%(old.point-stepsize*gradient))%*%(y-X%*%(old.point-stepsize*gradient)) >
+           t(y - X%*%old.point)%*%(y-X%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+    {
+      stepsize = tau * stepsize
+    }
+    
+       new.point = old.point - stepsize*gradient + momentum*(old.point - older.point)
+
     
     new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
     
-    if (is.na(old.value.function) || is.na(new.value.function)) {
-      stop("NaN value encountered. Try adjusting the step size (stepsize).")
-    }
     
-    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
-      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if( abs(old.value.function -new.value.function)<=conv_threshold){
+    if( abs(old.value.function - new.value.function) <= conv_threshold) {
       converged = T
     }
     
     data.output = data.frame(iteration = iterations,
                        old.value.function = old.value.function,
                        new.value.function = new.value.function,
-                       old.point=old.point, new.point=new.point
+                       old.point=old.point, new.point=new.point,
+                       stepsize = stepsize
                        )
-    
+  
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -903,130 +848,72 @@ gradientDescPolyak = function(y, X, startpoint, stepsize,  momentum,conv_thresho
               old.value.function = old.value.function,
               new.value.function = new.value.function,
               coefs = new.point,
+              stepsize = stepsize,
               iters = iters))
 }
 
 ```
 
+
 ```{r}
-momentum = 0.001
-stepsize = 0.00000001
-tau = 0.01
- results_GDP <- gradientDescPolyak(y, X, startpoint, stepsize, momentum, mytol, 10000) 
- results_GDP$coefs
+# given y, X
+startpoint = rep(0,p)# starting point
+stepsize_0 = 0.00001
+tau = 0.01 # tau for backtracking line search
+epsilon = 0.99
+momentum = 0.01
+tol = 0.0000000000001 #  convergence threshold
+
+# epsilon for backtracking line search
+
+
+
+ results_GDP <- gradientDescBLSPolyak(y, X, startpoint, stepsize_0, 
+                  tau, epsilon,momentum, tol,max_iter = 10000)
+```
+To compare the part(c) results with part (b)
+```{r}
+df_GD.GDP = data.frame(cbind(results_GD$coefs, results_GDP$coefs))
+names(df_GD.GDP) <- c("GD", "GDP")
+df_GD.GDP
 ```
 
 
 
 ## (d)
-Stochastic Gradient Descent with Polyak’s heavy ball adjustment (SGDM)
-```{r}
-# GPT ver
-stochastic_gradientDescPolyak = function(y, X, startpoint, stepsize, momentum,conv_threshold, max_iter, batch_size, backtracking = TRUE, alpha = 0.5, tau = 0.8) {
-  
-  n <- nrow(X)
-  old.point <- startpoint
-  gradient <- t(X) %*% X %*% old.point - t(X) %*% y
-  new.point <- old.point - stepsize * gradient + momentum * (old.point - startpoint)
+Stochastic Gradient Descent with Polyak’s heavy ball adjustment (SGDP)
 
-  old.value.function <- t(y - X %*% old.point) %*% (y - X %*% old.point)
-  
-  converged <- FALSE
-  iterations <- 0
-  iters <- NULL
-
-  while (converged == FALSE) {
-    ## Implement the stochastic gradient descent algorithm with Polyak's heavy ball adjustment and backtracking line search
-    indices <- sample(n, batch_size, replace = FALSE)
-    X_batch <- X[indices, ]
-    y_batch <- y[indices]
-    
-    old.point <- new.point
-    gradient <- t(X_batch) %*% X_batch %*% old.point - t(X_batch) %*% y_batch
-    
-    if (backtracking) {
-      stepsize <- 1
-      while (tau * t(y_batch - X_batch %*% (old.point - stepsize * gradient)) %*% (y_batch - X_batch %*% (old.point - stepsize * gradient)) > tau * t(y_batch - X_batch %*% old.point) %*% (y_batch - X_batch %*% old.point)) {
-        stepsize <- alpha * stepsize
-      }
-    }
-    
-    new.point <- old.point - stepsize * gradient + momentum * (old.point - startpoint)
-    
-    new.value.function <- t(y_batch - X_batch %*% new.point) %*% (y_batch - X_batch %*% new.point)
-    
-    if (is.na(old.value.function) || is.na(new.value.function)) {
-      stop("NaN value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if (!is.finite(old.value.function) || !is.finite(new.value.function)) {
-      stop("Non-finite value encountered. Try adjusting the step size (stepsize).")
-    }
-    
-    if (abs(old.value.function - new.value.function) <= conv_threshold) {
-      converged <- TRUE
-    }
-    
-    data.output <- data.frame(iteration = iterations,
-            old.value.function = old.value.function,
-            new.value.function = new.value.function,
-            old.point = old.point, new.point = new.point
-    )
-    
-    if (exists("iters")) {
-      iters <- rbind(iters, data.output)
-    } else {
-      iters <- data.output
-    }
-    
-    iterations <- iterations + 1
-    old.value.function <- new.value.function
-    
-    if (iterations >= max_iter) break
-  }
-  
-  return(list(converged = converged, 
-              num_iterations = iterations, 
-              old.value.function = old.value.function,
-              new.value.function = new.value.function,
-              coefs = new.point,
-              iters = iters))
-}
-
-
-```
 
 ```{r}
 # 10-1 lecture code, SGD with my adjustment
+# mb = minimum bach = Q
 
-SGD_BLS = function(y, X, startpoint, stepsize, conv_threshold, 
-                   epsilon, tau, mb, max_iter) {
+SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_threshold, max_iter) {
 
-  mini_batch=ceiling(length(y)*mb)
+  mini_batch = ceiling(length(y) * mb) #cieling bc batchsize needs to be an integer
   
-  z=cbind(y,X)
-  
+  z = cbind(y, X)
   # shuffle the data and select a mini batch
+  # adjust the data structure of shuffle.sample to get right yx Xs
+ shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
   
-  shuffle.sample = z[sample(mini_batch,replace=FALSE),]  
-  shuffle.sample = matrix(shuffle.sample, nrow  = 1)
-  
-  ys= as.matrix(shuffle.sample[,1] )
-  Xs= matrix(shuffle.sample[,2:ncol(shuffle.sample)], nrow = 1)
+ # wit suppose to be 1 (y) + 20 (x) = 21 col
+ shuffle.sample <- matrix(shuffle.sample, nrow =1, ncol = ncol(z) )
+  ys =   matrix(shuffle.sample[, 1], nrow = 1, ncol = ncol(y))
+#shuffle.sample[, 1] # also pay attention to ys and Xs data structure
+  Xs =  matrix(shuffle.sample[, 2:ncol(shuffle.sample)], nrow = 1, ncol = ncol(X))
+#shuffle.sample[, 2:ncol(shuffle.sample)]
   
   old.point = startpoint
-  gradient = (t(Xs)%*%Xs%*%old.point - t(Xs)%*%ys)
+  older.point = old.point 
+  
+  gradient = (t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys)
   
   # determine stepsize by backtracking line search
   
-while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize*gradient)) > t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient ){
-    stepsize = tau * stepsize
-  }
-  
-  new.point = old.point - stepsize * gradient
+  new.point = old.point - stepsize * gradient + momentum * (old.point - older.point)
 
-
-  old.value.function = t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point)
+  old.value.function = t(ys - Xs %*% old.point) %*% (ys-Xs %*% old.point)
   
   converged = F
   iterations = 0
@@ -1034,30 +921,31 @@ while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize
   while(converged == F) {
     
     # shuffle the data and select a mini batch
-    shuffle.sample = z[sample(mini_batch,replace=FALSE),]  
-    shuffle.sample = matrix(shuffle.sample, nrow  = 1)
-    ys= as.matrix(shuffle.sample[,1] )
-    Xs= matrix(shuffle.sample[,2:ncol(shuffle.sample)], nrow = 1)
-    
+ shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
+ shuffle.sample <- matrix(shuffle.sample, nrow =1, ncol = ncol(z) )
+  ys =   matrix(shuffle.sample[, 1], nrow = 1, ncol = ncol(y))
+  Xs =  matrix(shuffle.sample[, 2:ncol(shuffle.sample)], nrow = 1, ncol = ncol(X))
+  
     ## Implement the stochastic gradient descent algorithm
+    older.point = old.point
     old.point = new.point
   
-    gradient = t(Xs)%*%Xs%*%old.point - t(Xs)%*%ys
+    gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
     
     # determine stepsize by backtracking line search
-    
-    while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize*gradient)) >
-           t(ys - Xs%*%old.point)%*%(ys-Xs%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+    # SSE(βk ) − SSE(βk−1)) > tol 
+    while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
+           t(ys - Xs %*% older.point) %*% (ys - Xs %*% older.point) - epsilon * stepsize * t(gradient) %*% gradient)            
     {
       stepsize = tau * stepsize
     }
     
-    new.point = old.point - stepsize * gradient
+    new.point = old.point - stepsize*gradient + momentum*(old.point - older.point)
     
-    new.value.function = t(ys -Xs%*%new.point)%*%(ys-Xs%*%new.point)
+    new.value.function = t(ys - Xs %*% new.point) %*% (ys - Xs %*% new.point)
     
     
-    if( abs(old.value.function - new.value.function) <=conv_threshold) {
+    if( abs(old.value.function - new.value.function) <= conv_threshold) {
       converged = T
     }
     
@@ -1068,6 +956,7 @@ while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize
                        stepsize = stepsize
                        )
     
+    iters <- NULL
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -1090,106 +979,26 @@ while (t(ys - Xs%*%(old.point-stepsize*gradient))%*%(ys-Xs%*%(old.point-stepsize
 
 ```
 
-```{r}
-# 10-1 lecture code, SGD wo my adjustment
-SGD_BLS = function(y, X, startpoint, stepsize, conv_threshold, epsilon, tau, mb, max_iter) {
-  
-  mini_batch = ceiling(length(y) * mb)
-  
-  z = as.data.frame(cbind(y, X))
-  
-  # shuffle the data and select a mini batch
-  shuffle.sample = z[sample(mini_batch, replace = FALSE), ]
-  
-  ys = shuffle.sample[, 1]
-  Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
-  
-  old.point = startpoint
-  gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
-  
-  # determine stepsize by backtracking line search
-  while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
-           t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient) {
-    stepsize = tau * stepsize
-  }
-  
-  new.point = old.point - stepsize * gradient
-  
-  old.value.function = t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point)
-  
-  converged = FALSE
-  iterations = 0
-  iters <- NULL
-  
-  while (!converged) {
-    # shuffle the data and select a mini batch
-    shuffle.sample = z[sample(mini_batch, replace = FALSE), ]
-    
-    ys = shuffle.sample[, 1]
-    Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
-    
-    ## Implement the stochastic gradient descent algorithm
-    old.point = new.point
-    
-    gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
-    
-    # determine stepsize by backtracking line search
-    while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
-             t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient) {
-      stepsize = tau * stepsize
-    }
-    
-    new.point = old.point - stepsize * gradient
-    
-    new.value.function = t(ys - Xs %*% new.point) %*% (ys - Xs %*% new.point)
-    
-    if (abs(old.value.function - new.value.function) <= conv_threshold) {
-      converged = TRUE
-    }
-    
-    data.output = data.frame(iteration = iterations,
-                             old.value.function = old.value.function,
-                             new.value.function = new.value.function,
-                             old.point = old.point, new.point = new.point,
-                             stepsize = stepsize
-    )
-    
-    if (exists("iters")) {
-      iters <- rbind(iters, data.output)
-    } else {
-      iters = data.output
-    }
-    
-    iterations = iterations + 1
-    old.value.function = new.value.function
-    
-    if (iterations >= max_iter) break
-  }
-  
-  return(list(converged = converged,
-              num_iterations = iterations,
-              old.value.function = old.value.function,
-              new.value.function = new.value.function,
-              coefs = new.point,
-              stepsize = stepsize,
-              iters = iters))
-}
 
-```
 
 ```{r}
-# here we define the step size
-mystepsize=0.0001
-# here we define the tolerance of the convergence criterion
-mytol = 1e-8
-# epsilon for backtracking line search
-epsilon = 0.5
-# tau for backtracking line search
-tau = 0.5
-# minibatch size
-mb = 0.001
-results_d <- SGD_BLS(y, X, startpoint, stepsize, mytol, 
-                   epsilon, tau, mb, 10000)
-results_d$coefs
-```
+#Given y, X
+startpoint=rep(0,p) # startpoint
+mystepsize=1e-05 # define the stepsize_0
+tau = 0.5 # tau for backtracking line search
+epsilon = 0.5# epsilon for backtracking line search
+momentum =0.1 # momentum
+mb = 0.002# minibatch size
+mytol = 1e-8 # define conv_threshold
 
+results_SGDP <- SGDP(y, X, startpoint, mystepsize,  tau,epsilon,momentum,mb, mytol, max_iter = 10000) 
+
+results_SGDP$coefs
+```
+To compare the part(d) results with part (b) and (c)
+```{r}
+df_SGDP.GD.GDP = data.frame(cbind(results_SGDP$coefs
+,results_GD$coefs, results_GDP$coefs))
+names(df_SGDP.GD.GDP) <- c("SGDP","GD", "GDP")
+df_SGDP.GD.GDP
+```
