@@ -359,6 +359,34 @@ of CIs constructed"
       +
 
 
+1. I calculate the population median of our simulated Weibull distribution first given k = 1.5 and lambda = 1.
+2. For each type of Confidence Interval (CI), coverage probability and the average length of CI:
+  + I first generate M = 100 random samples based on Weibull distribution  
+  + Then I wrote a for loop to calculate CI for all random sample X[,i]. On each random sample, I bootstrap them for B = 500 replicated, and I calculate the bootstrapped sample median and the standard deviation of it for each bootstrapped sample on each X[,i]
+    + For CIN, I followed CI(mean(X[,i]) - z_value\*(boot.sample median X[,i])\$SE,  median(X[,i])+ z_value*(boot.sample median of X[,i])\$SE)
+    + For CIB, I calculated CI with 2\*(sample median of X[,i])-the (1-alpha / 2) quantile of bootstrapped sample median on X[,i]; and  2\*(sample.statistics of X[,i])+the (alpha / 2) quantile of bootstrapped sample median on X[,i]
+    + For CIP, the calculation of CI is simple: use 1-(1-alpha / 2) quantile of bootstrapped sample median on X[,i] to calculate the lower bound, and (alpha / 2) quantile of bootstrapped sample median on X[,i] to calculate the upper bound. CI = (lower bound, upper bound).
+    + For CIS:
+      + After we get the boot.sample on X[,i] and the median of boot.sample (x.median). We bootstrap on boot.sample to calculate the standard deviation of the bootstrapped sample on a boot.sample (iter.boot.samples) and its SE (boot.samples.SE).
+      + Using these to calculate T-statistics, T = ( the bootstrapped medians based on X[,i] - median(X[,i]))/ boot.samples.SE
+      + calculate the q_value (qval) by the quantile of T distribution on (alpha/2 ) and (1-alpha/2)
+      + Generate studentized CI= (median(x)- qval[2]\*x.median\$se,median(x)+ qval[2]*x.median\$se
+    + For each CI
+      + We calculate its coverage probability by counting how many of our simulated CI contains the population mean, and divided it by M the number of random samples
+      + Calculate the average CI length by using the upper bound (CI[,2]) minus lower bound (CI[,1])
+3. Report Average Length of CI and Coverage Probability of Each CI
+
+|Case        | Info                 |     CIN   | CIB        | CIP       | CIS        |
+|:-----------|:---------------------|:---------:|:----------:|:---------:|:----------:|
+|n=100,M=100 |Coverage Probability  | 0.92      |0.89        |0.93       |0.91        |
+|n=100,M=100 |Average Length        | 0.2975732 |0.3004658   |0.286607   |0.3065558   |
+|n=100,M=500 |Coverage Probability  |0.95       |0.868       |0.944      |0.898       |
+|n=100,M=500 |Average Length        |0.3028203  |0.2920194   |0.2914456  |0.3139956   |
+|n=250,M=100 |Coverage Probability  |0.96       |0.87        |0.96       |0.84        |
+|n=250,M=100 |Average Length        |0.184724   |0.1786801   |0.1846978  |0.1934652   |
+|n=250,M=500 |Coverage Probability  |0.944      |0.892       |0.962      |0.882       |
+|n=250,M=500 |Average Length        |0.1874409  |0.1862028   |0.1859115  |0.186187    | 
+
 ## (b)
 fixed parameters for case CIN, CIB, CIP
 NOTE: instead of using B = 5000, I use B = 500 here to save computation without losing much coverage probability
@@ -659,6 +687,35 @@ Get_CIS(n,M,k,lambda,B, alpha )
 ```
 
 
+1. I calculate the population standard deviation(sd) of our simulated Weibull distribution first given k = 1.5 and lambda = 1.
+2. For each type of Confidence Interval (CI), coverage probability and the average length of CI:
+  + I first generate M = 100 random samples based on Weibull distribution  
+  + Then I wrote a for loop to calculate CI for all random sample X[,i]. On each random sample, I bootstrap them for B = 500 replicated, and I calculate the bootstrapped sample sd and the standard deviation of the sd for each bootstrapped sample on each X[,i]
+    + For CIN, I followed CI(mean(X[,i]) - z_value\*(boot.sample sd X[,i])\$SE,  sd(X[,i])+ z_value*(boot.sample sd of X[,i])\$SE)
+    + For CIB, I calculated CI with 2\*(sample sd of X[,i])-the (1-alpha / 2) quantile of bootstrapped sample sd on X[,i]; and  2\*(sample.statistics of X[,i])+the (alpha / 2) quantile of bootstrapped sample sd on X[,i]
+    + For CIP, the calculation of CI is simple: use 1-(1-alpha / 2) quantile of bootstrapped sample sd on X[,i] to calculate the lower bound, and (alpha / 2) quantile of bootstrapped sample sd on X[,i] to calculate the upper bound. CI = (lower bound, upper bound).
+    + For CIS:
+      + After we get the boot.sample on X[,i] and the sd of boot.sample (sd). We bootstrap on boot.sample to calculate the standard deviation of the bootstrapped sample on a boot.sample (iter.boot.samples) and its SE (boot.samples.SE).
+      + Using these to calculate T-statistics, T = ( the bootstrapped medians based on X[,i] - sd(X[,i]))/ boot.samples.SE
+      + calculate the q_value (qval) by the quantile of T distribution on (alpha/2 ) and (1-alpha/2)
+      + Generate studentized CI= (sd(x)- qval[2]\*x.sd\$se,sd(x)+ qval[2]*x.sd\$se
+    + For each CI
+      + We calculate its coverage probability by counting how many of our simulated CI contains the population mean, and divided it by M the number of random samples
+      + Calculate the average CI length by using the upper bound (CI[,2]) minus lower bound (CI[,1])
+3. Report Average Length of CI and Coverage Probability of Each CI
+
+|Case        | Info                 |     CIN   | CIB        | CIP       | CIS        |
+|:-----------|:---------------------|:---------:|:----------:|:---------:|:----------:|
+|n=100,M=100 |Coverage Probability  | 0.94      |0.94        |0.85       |0.86        |
+|n=100,M=100 |Average Length        | 0.2065513 |0.1993732   |0.2006768  |0.2292618   |
+|n=100,M=500 |Coverage Probability  |0.914      |0.92        |0.892      |0.89        |
+|n=100,M=500 |Average Length        |0.2052708  |0.1998169   |0.2005602  |0.2273378   |
+|n=250,M=100 |Coverage Probability  |0.92       |0.92        |0.92       |0.9         |
+|n=250,M=100 |Average Length        |0.1359116  |0.1372693   |0.1332743  |0.1518025   |
+|n=250,M=500 |Coverage Probability  |0.936      |0.91        |0.918      |0.91        |
+|n=250,M=500 |Average Length        |0.135217   |0.1327013   |0.1321043  |0.1378189   |
+
+
 
 
 
@@ -668,7 +725,7 @@ Get_CIS(n,M,k,lambda,B, alpha )
 ## (a)
 ```{r}
 
-n <- 100  # Number of observations
+n <- 100000  # Number of observations
 p <- 20      # Number of predictors
 
 # 1. True regression coefficient = 3
@@ -696,10 +753,18 @@ y <- X %*% beta_true + epsilon #including information of the beta_true and epsil
 gradient descent (GD) function:
 ```{r}
 gradientDesc = function(y, X, startpoint, stepsize, 
-                        conv_threshold, max_iter) {
+                        conv_threshold,epsilon, tau, max_iter) {
   
   old.point = startpoint
   gradient = (t(X)%*%X%*%old.point - t(X)%*%y)
+  
+  # determine stepsize by backtracking line search
+    while (t(y - X%*%(old.point-stepsize*gradient))%*%(y-X%*%(old.point-stepsize*gradient)) >
+                t(y - X%*%old.point)%*%(y-X%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+     {
+    stepsize = tau * stepsize
+  }
+  
   new.point = old.point - stepsize * gradient
 
   old.value.function = t(y - X%*%old.point)%*%(y-X%*%old.point)
@@ -710,21 +775,33 @@ gradientDesc = function(y, X, startpoint, stepsize,
   while(converged == F) {
     ## Implement the gradient descent algorithm
     old.point = new.point
+    
     gradient = t(X) %*% X %*% old.point - t(X)%*%y
+    
+    # determine stepsize by backtracking line search
+    
+    while (t(y - X%*%(old.point-stepsize*gradient))%*%(y-X%*%(old.point-stepsize*gradient)) >
+           t(y - X%*%old.point)%*%(y-X%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
+    {
+      stepsize = tau * stepsize
+    }
+    
     new.point = old.point - stepsize * gradient
     
     new.value.function = t(y - X%*%new.point)%*%(y-X%*%new.point)
     
-    if( abs(old.value.function - new.value.function) <= conv_threshold) {
+    if( abs(old.value.function - new.value.function) <=conv_threshold){
       converged = T
     }
     
     data.output = data.frame(iteration = iterations,
                        old.value.function = old.value.function,
                        new.value.function = new.value.function,
-                       old.point=old.point, new.point=new.point
+                       old.point=old.point,
+                       new.point=new.point,
+                       stepsize = stepsize
                        )
-    iters <- NULL
+    iters <- NULL # because we only need the new.point (beta_hat) of the last/stop iteration as our estimation. This can save memory.
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -741,22 +818,26 @@ gradientDesc = function(y, X, startpoint, stepsize,
               old.value.function = old.value.function,
               new.value.function = new.value.function,
               coefs = new.point,
-              iters = iters))
+              stepsize = stepsize,
+              iters = iters,
+              converge = converged))
 }
 ```
 
 Running GD
 ```{r}
 # starting point
-mystartpoint = rep(0, p)
+startpoint=c(rep(0,p)) # startpoint
 #  define the step size
-mystepsize=0.000001
+mystepsize=0.001
 # here we define the tolerance of the convergence criterion
 mytol = 0.00000001 
+epsilon = 0.9
+tau = 0.5
 
-
-results_GD = gradientDesc(y, X, mystartpoint, 
-                       mystepsize, mytol, max_iter= 10000)
+set.seed(33)
+results_GD = gradientDesc(y, X, startpoint, 
+                       mystepsize, mytol,epsilon, tau, max_iter= 1000000)
 
 ```
 Least Square Model (LS)
@@ -766,9 +847,21 @@ LS_model <- lm(y~X)
 df_GD.LS = data.frame(cbind(results_GD$coefs,LS_model$coefficients))
 names(df_GD.LS) <- c("GD", "LS")
 df_GD.LS
+cat("\nconverged?",results_GD$converge, "\n")
+
 ```
-Comments:
-I use "Manual tuning" method to select the step size. The rule of thumbs is if the step size is to big, the result will never converge; if the step size is small, it will converge slowly. In the beginning I tried some step sizes like 10^-3, 10^-4 and the results didn't converge until I tuned the step size to 10^-5.
+
+
+Discussion of GD:
+
+* step size selection: I use backtracking line search (BLS) method to search the step size. I start we a relatively large step size and use parameter tau to tune it within BLS untill it gets optimal. 
+
+* Number of Iterations: 
+```{r}
+cat("Number of iteration of GD:",results_GD$num_iterations)
+```
+
+* Comment on Accuracy: Under the given conditions, __ model performs better than __ model because its estimates are more close to Beta_True. We observe that __ model's estiamtes spread closely around beta_true = 3, while __ model has some estimates far away from 3, like __ . Therefore, we conclude __ model is more accurate in the given condition. 
 
 ## (c)
 gradient descent with Polyak’s heavy ball adjustment (GDP) :
@@ -809,6 +902,7 @@ gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0,
     stepsize = stepsize_0
     
     iters <- NULL
+    
     while (t(y - X%*%(old.point-stepsize*gradient))%*%(y-X%*%(old.point-stepsize*gradient)) >
            t(y - X%*%old.point)%*%(y-X%*%old.point) - epsilon * stepsize * t(gradient) %*% gradient )            
     {
@@ -831,7 +925,7 @@ gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0,
                        old.point=old.point, new.point=new.point,
                        stepsize = stepsize
                        )
-  
+   
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -841,7 +935,7 @@ gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0,
     iterations = iterations + 1
     old.value.function = new.value.function
     
-    if(iterations >= max_iter) break
+    if(iterations >= max_iter){break}
   }
   return(list(converged = converged, 
               num_iterations = iterations, 
@@ -849,7 +943,8 @@ gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0,
               new.value.function = new.value.function,
               coefs = new.point,
               stepsize = stepsize,
-              iters = iters))
+              iters = iters,
+              converge = converged))
 }
 
 ```
@@ -857,35 +952,45 @@ gradientDescBLSPolyak = function(y, X, startpoint, stepsize_0,
 
 ```{r}
 # given y, X
-startpoint = rep(0,p)# starting point
-stepsize_0 = 0.00001
-tau = 0.01 # tau for backtracking line search
-epsilon = 0.99
+startpoint=c(rep(0,p)) # startpoint
+stepsize_0 = 0.001 #because we will use BLS to get optimal step size, step initial step size larger
+tau = 0.5# tau for backtracking line search
+epsilon = 0.9
 momentum = 0.01
-tol = 0.0000000000001 #  convergence threshold
+tol = 0.0000000001 #  convergence threshold
 
 # epsilon for backtracking line search
 
 
-
+set.seed(34)
  results_GDP <- gradientDescBLSPolyak(y, X, startpoint, stepsize_0, 
-                  tau, epsilon,momentum, tol,max_iter = 10000)
+                  tau, epsilon,momentum, tol,max_iter = 1000000)
 ```
 To compare the part(c) results with part (b)
 ```{r}
 df_GD.GDP = data.frame(cbind(results_GD$coefs, results_GDP$coefs))
 names(df_GD.GDP) <- c("GD", "GDP")
 df_GD.GDP
+
+cat("\nconverged?",results_GDP$converge, "\n")
 ```
 
+Discussion of GD:
 
+* step size selection: I use backtracking line search (BLS) method to search the step size. I start we a relatively large step size and use parameter tau to tune it within BLS untill it gets optimal. 
+
+* Number of Iterations: 
+```{r}
+cat("Number of iteration of GDP:",results_GDP$num_iterations)
+```
+
+* Comment on Accuracy: Under the given conditions, __ model performs better than __ model because its estimates are more close to Beta_True. We observe that __ model's estiamtes spread closely around beta_true = 3, while __ model has some estimates far away from 3, like __ . Therefore, we conclude __ model is more accurate in the given condition. 
 
 ## (d)
 Stochastic Gradient Descent with Polyak’s heavy ball adjustment (SGDP)
 
 
 ```{r}
-# 10-1 lecture code, SGD with my adjustment
 # mb = minimum bach = Q
 
 SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_threshold, max_iter) {
@@ -894,40 +999,42 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
   
   z = cbind(y, X)
   # shuffle the data and select a mini batch
-  # adjust the data structure of shuffle.sample to get right yx Xs
- shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
+  shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
   
- # wit suppose to be 1 (y) + 20 (x) = 21 col
- shuffle.sample <- matrix(shuffle.sample, nrow =1, ncol = ncol(z) )
-  ys =   matrix(shuffle.sample[, 1], nrow = 1, ncol = ncol(y))
-#shuffle.sample[, 1] # also pay attention to ys and Xs data structure
-  Xs =  matrix(shuffle.sample[, 2:ncol(shuffle.sample)], nrow = 1, ncol = ncol(X))
-#shuffle.sample[, 2:ncol(shuffle.sample)]
+  ys = shuffle.sample[, 1]
+  Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
+  
+  
   
   old.point = startpoint
   older.point = old.point 
   
-  gradient = (t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys)
+  stepsize = stepsize
+  gradient = (t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys) #gradient [(X'X )βk − X'y ]
   
-  # determine stepsize by backtracking line search
-  
-  new.point = old.point - stepsize * gradient + momentum * (old.point - older.point)
+   while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
+           t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient)            
+    {
+      stepsize = tau * stepsize
+    }
 
-  old.value.function = t(ys - Xs %*% old.point) %*% (ys-Xs %*% old.point)
+  new.point = old.point - stepsize * gradient + momentum * (old.point - older.point) #Hence, for the regression problem the update becomes βk+1 = βk − η*[(X'X )βk − X'y ] + ξ(βk − βk−1)
+
+  old.value.function = t(ys - Xs %*% old.point) %*% (ys-Xs %*% old.point)  # SSE(βk) = (Ys - Xs'βk+1)'(Ys - Xs'βk+1) # update old point
   
   converged = F
   iterations = 0
   
   while(converged == F) {
-    
+  
     # shuffle the data and select a mini batch
- shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
- shuffle.sample <- matrix(shuffle.sample, nrow =1, ncol = ncol(z) )
-  ys =   matrix(shuffle.sample[, 1], nrow = 1, ncol = ncol(y))
-  Xs =  matrix(shuffle.sample[, 2:ncol(shuffle.sample)], nrow = 1, ncol = ncol(X))
+shuffle.sample = z[sample(mini_batch, replace = FALSE), ]  
+  
+  ys = shuffle.sample[, 1]
+  Xs = shuffle.sample[, 2:ncol(shuffle.sample)]
   
     ## Implement the stochastic gradient descent algorithm
-    older.point = old.point
+    older.point = old.point #is this update correct?
     old.point = new.point
   
     gradient = t(Xs) %*% Xs %*% old.point - t(Xs) %*% ys
@@ -935,14 +1042,14 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
     # determine stepsize by backtracking line search
     # SSE(βk ) − SSE(βk−1)) > tol 
     while (t(ys - Xs %*% (old.point - stepsize * gradient)) %*% (ys - Xs %*% (old.point - stepsize * gradient)) >
-           t(ys - Xs %*% older.point) %*% (ys - Xs %*% older.point) - epsilon * stepsize * t(gradient) %*% gradient)            
+           t(ys - Xs %*% old.point) %*% (ys - Xs %*% old.point) - epsilon * stepsize * t(gradient) %*% gradient)            
     {
       stepsize = tau * stepsize
     }
     
     new.point = old.point - stepsize*gradient + momentum*(old.point - older.point)
     
-    new.value.function = t(ys - Xs %*% new.point) %*% (ys - Xs %*% new.point)
+    new.value.function = t(ys - Xs %*% new.point) %*% (ys - Xs %*% new.point) #both update new.point
     
     
     if( abs(old.value.function - new.value.function) <= conv_threshold) {
@@ -956,7 +1063,6 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
                        stepsize = stepsize
                        )
     
-    iters <- NULL
     if(exists("iters")) {
       iters <- rbind(iters, data.output)
     } else {
@@ -964,6 +1070,7 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
     }
     
     iterations = iterations + 1
+    # update?
     old.value.function = new.value.function
     
     if(iterations >= max_iter) break
@@ -974,7 +1081,8 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
               new.value.function = new.value.function,
               coefs = new.point,
               stepsize = stepsize,
-              iters = iters))
+              iters = iters,
+              converge = converged))
 }
 
 ```
@@ -983,17 +1091,18 @@ SGDP <- function(y, X, startpoint, stepsize,  tau,epsilon,momentum,mb, conv_thre
 
 ```{r}
 #Given y, X
-startpoint=rep(0,p) # startpoint
-mystepsize=1e-05 # define the stepsize_0
+startpoint=c(rep(0,p)) # startpoint
+mystepsize=5 # define the stepsize_0
 tau = 0.5 # tau for backtracking line search
-epsilon = 0.5# epsilon for backtracking line search
+epsilon = 0.9# epsilon for backtracking line search
 momentum =0.1 # momentum
 mb = 0.002# minibatch size
 mytol = 1e-8 # define conv_threshold
 
-results_SGDP <- SGDP(y, X, startpoint, mystepsize,  tau,epsilon,momentum,mb, mytol, max_iter = 10000) 
+set.seed(35)
+results_SGDP <- SGDP(y, X, startpoint, mystepsize,  tau,epsilon,momentum,mb, mytol, max_iter = 100000) 
+cat("\nconverged?",results_SGDP$converge, "\n")
 
-results_SGDP$coefs
 ```
 To compare the part(d) results with part (b) and (c)
 ```{r}
@@ -1002,3 +1111,15 @@ df_SGDP.GD.GDP = data.frame(cbind(results_SGDP$coefs
 names(df_SGDP.GD.GDP) <- c("SGDP","GD", "GDP")
 df_SGDP.GD.GDP
 ```
+
+Discussion of SGDP:
+
+* step size selection: I use backtracking line search (BLS) method to search the step size. I start we a relatively large step size and use parameter tau to tune it within BLS untill it gets optimal. 
+
+* Number of Iterations: 
+```{r}
+cat("Number of iteration of SGDP:",results_SGDP$num_iterations)
+```
+
+* Comment on Accuracy: Under the given conditions, __ model performs better than __ model because its estimates are more close to Beta_True. We observe that __ model's estiamtes spread closely around beta_true = 3, while __ model has some estimates far away from 3, like __ . Therefore, we conclude __ model is more accurate in the given condition. 
+
